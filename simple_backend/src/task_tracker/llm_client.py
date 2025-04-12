@@ -1,4 +1,5 @@
 import httpx
+import asyncio
 
 class CloudflareLLMClient:
     def __init__(self, endpoint_url: str, api_key: str = None):
@@ -11,5 +12,5 @@ class CloudflareLLMClient:
         async with httpx.AsyncClient() as client:
             response = await client.post(self.url, json={"prompt": prompt}, headers=self.headers)
             response.raise_for_status()
-            data = response.json
+            data = response.json()
             return data.get("response", "No response from AI")

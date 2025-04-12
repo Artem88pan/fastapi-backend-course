@@ -6,7 +6,7 @@ import httpx
 
 class RemoteTaskStorage:
     def __init__(self, bin_id: str, api_key: str):
-        self.base_url = f"https://api.jsonbin.io/v3.b.{bin_id}"
+        self.base_url = f"https://api.jsonbin.io/v3/b/{bin_id}"
         self.headers = {
             "X-Master-Key": api_key,
             "Content-Type": "application/json"
@@ -17,7 +17,7 @@ class RemoteTaskStorage:
     async def save_all(self, tasks: List[Task]):
         payload = [task.model_dump() for task in tasks]
         async with httpx.AsyncClient() as client:
-            response = await client.put(self.base_url, headers=self.headers, json=payload)
+            response = await client.put(self.base_url, headers=self.headers, json={"record": payload})
             response.raise_for_status()
 
 
@@ -26,16 +26,21 @@ class RemoteTaskStorage:
         async with httpx.AsyncClient() as client:
             response = await client.get(self.base_url, headers=self.headers)
             response.raise_for_status()
-            data = response.json()["record"]
-            return[Task(**item) for item in data]
-        
+            import json
+            raw_data = response.json()["record"]
+            if isinstance(raw_data, str):
+                data = json.loads(raw_data)
+            else:
+                data = raw_data
+            return [Task(**item) for item in data]
+
     
     async def add(self, task: Task):
         tasks = await self.get_all()
         if any(t.id == task.id for t in tasks):
             raise ValueError('задача с таким индификатором уже существует')
         tasks.append(task)
-        await self.get_all(tasks)
+        await self.save_all(tasks)
 
     async def update(self, task_id: int, updated: Task) -> Optional[Task]:
         tasks = await self.get_all()
@@ -47,7 +52,7 @@ class RemoteTaskStorage:
         return None
 
     async def delete(self, task_id: int) -> Optional[Task]:
-        tasks = await self.get_all
+        tasks = await self.get_all()
         for t in tasks:
             if t.id == task_id:
                 tasks.remove(t)
